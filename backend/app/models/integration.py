@@ -1,0 +1,25 @@
+from datetime import datetime
+
+from sqlalchemy import String, DateTime
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.database.base import Base
+
+
+class Integration(Base):
+    __tablename__ = "integrations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+
+    source_system: Mapped[str] = mapped_column(String(100), nullable=False)
+
+    target_system: Mapped[str] = mapped_column(String(100), nullable=False)
+
+    status: Mapped[str] = mapped_column(String(50), default="Active")
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow
+    )

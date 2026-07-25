@@ -1,6 +1,9 @@
 from fastapi import FastAPI
+
 from app.api.health import router as health_router
+from app.api.integrations import router as integrations_router
 from app.config import settings
+
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -9,6 +12,7 @@ app = FastAPI(
 )
 
 app.include_router(health_router)
+app.include_router(integrations_router)
 
 
 @app.get("/")
