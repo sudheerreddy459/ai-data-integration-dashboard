@@ -90,6 +90,9 @@ def update_integration(
     db.commit()
     db.refresh(integration)
 
+    return integration
+
+
 # DELETE an integration by ID
 @router.delete("/{integration_id}")
 def delete_integration(
@@ -112,5 +115,3 @@ def delete_integration(
     return {
         "message": "Integration deleted successfully"
     }
-
-    return integration
