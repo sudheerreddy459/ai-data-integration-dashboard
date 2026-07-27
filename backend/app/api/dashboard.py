@@ -1,11 +1,14 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
 from app.models.integration import Integration
 from app.models.integration_run import IntegrationRun
-from app.schemas.dashboard import DashboardSummaryResponse
+from app.schemas.dashboard import (
+    DashboardSummaryResponse,
+    IntegrationSummaryResponse,
+)
 
 
 router = APIRouter(
@@ -14,6 +17,7 @@ router = APIRouter(
 )
 
 
+# GET overall dashboard summary
 @router.get("/summary", response_model=DashboardSummaryResponse)
 def get_dashboard_summary(
     db: Session = Depends(get_db)
@@ -45,9 +49,16 @@ def get_dashboard_summary(
         )
     ).scalar()
 
+    # Success rate is based only on completed runs.
+    # Running executions should not reduce the success rate.
+    completed_runs_count = successful_runs + failed_runs
+
     success_rate = (
-        round((successful_runs / total_runs) * 100, 2)
-        if total_runs > 0
+        round(
+            (successful_runs / completed_runs_count) * 100,
+            2
+        )
+        if completed_runs_count > 0
         else 0.0
     )
 
@@ -58,4 +69,110 @@ def get_dashboard_summary(
         "failed_runs": failed_runs,
         "total_records_processed": total_records_processed,
         "success_rate": success_rate
+    }
+
+
+# GET summary for a specific integration
+@router.get(
+    "/integrations/{integration_id}/summary",
+    response_model=IntegrationSummaryResponse
+)
+def get_integration_summary(
+    integration_id: int,
+    db: Session = Depends(get_db)
+):
+    # Check whether the integration exists
+    integration = db.query(Integration).filter(
+        Integration.id == integration_id
+    ).first()
+
+    if integration is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Integration not found"
+        )
+
+    # Get all runs for this integration
+    runs = db.query(IntegrationRun).filter(
+        IntegrationRun.integration_id == integration_id
+    ).all()
+
+    total_runs = len(runs)
+
+    # Count successful runs
+    successful_runs = sum(
+        1 for run in runs
+        if run.status == "Success"
+    )
+
+    # Count failed runs
+    failed_runs = sum(
+        1 for run in runs
+        if run.status == "Failed"
+    )
+
+    # Calculate total records processed
+    total_records_processed = sum(
+        run.records_processed
+        for run in runs
+    )
+
+    # Success rate is based only on completed runs
+    completed_runs_count = successful_runs + failed_runs
+
+    success_rate = (
+        round(
+            (successful_runs / completed_runs_count) * 100,
+            2
+        )
+        if completed_runs_count > 0
+        else 0.0
+    )
+
+    # Get completed runs with valid durations
+    completed_runs = [
+        run for run in runs
+        if run.completed_at is not None
+        and run.duration_seconds is not None
+    ]
+
+    # Calculate average duration
+    if completed_runs:
+        durations = [
+            run.duration_seconds
+            for run in completed_runs
+        ]
+
+        average_duration_seconds = round(
+            sum(durations) / len(durations),
+            2
+        )
+    else:
+        average_duration_seconds = None
+
+    # Find the most recent run
+    last_run = max(
+        runs,
+        key=lambda run: run.started_at,
+        default=None
+    )
+
+    if last_run is not None:
+        last_run_status = last_run.status
+        last_run_duration_seconds = last_run.duration_seconds
+    else:
+        last_run_status = None
+        last_run_duration_seconds = None
+
+    return {
+        "integration_id": integration.id,
+        "integration_name": integration.name,
+        "total_runs": total_runs,
+        "successful_runs": successful_runs,
+        "failed_runs": failed_runs,
+        "success_rate": success_rate,
+        "total_records_processed": total_records_processed,
+        "last_run_status": last_run_status,
+        "average_duration_seconds": average_duration_seconds,
+        "last_run_duration_seconds": last_run_duration_seconds
     }

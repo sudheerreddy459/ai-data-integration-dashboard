@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -6,6 +8,7 @@ from app.models.integration import Integration
 from app.models.integration_run import IntegrationRun
 from app.schemas.integration_run import (
     IntegrationRunCreate,
+    IntegrationRunUpdate,
     IntegrationRunResponse,
 )
 
@@ -16,7 +19,7 @@ router = APIRouter(
 )
 
 
-# CREATE an integration run
+# CREATE / START an integration run
 @router.post("/", response_model=IntegrationRunResponse)
 def create_integration_run(
     run: IntegrationRunCreate,
@@ -33,12 +36,13 @@ def create_integration_run(
             detail="Integration not found"
         )
 
+    # Every new run starts in Running state
     db_run = IntegrationRun(
         integration_id=run.integration_id,
-        status=run.status,
-        completed_at=run.completed_at,
-        records_processed=run.records_processed,
-        error_message=run.error_message
+        status="Running",
+        records_processed=0,
+        completed_at=None,
+        error_message=None
     )
 
     db.add(db_run)
@@ -83,6 +87,43 @@ def get_runs_by_integration(
     ).all()
 
     return runs
+
+
+# UPDATE / COMPLETE an integration run
+@router.put("/{run_id}", response_model=IntegrationRunResponse)
+def update_integration_run(
+    run_id: int,
+    run_update: IntegrationRunUpdate,
+    db: Session = Depends(get_db)
+):
+    run = db.query(IntegrationRun).filter(
+        IntegrationRun.id == run_id
+    ).first()
+
+    if run is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Integration run not found"
+        )
+
+    # A completed run cannot be completed again
+    if run.status != "Running":
+        raise HTTPException(
+            status_code=409,
+            detail="Integration run is already completed"
+        )
+
+    run.status = run_update.status
+    run.records_processed = run_update.records_processed
+    run.error_message = run_update.error_message
+
+    # Backend automatically records completion time
+    run.completed_at = datetime.utcnow()
+
+    db.commit()
+    db.refresh(run)
+
+    return run
 
 
 # GET integration run by ID
