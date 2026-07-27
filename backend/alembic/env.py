@@ -5,32 +5,34 @@ from sqlalchemy import pool
 
 from alembic import context
 
+from app.config import settings
 from app.database.base import Base
 from app.models.integration import Integration
-from app.config import settings
+from app.models.integration_run import IntegrationRun
 
 
-# this is the Alembic Config object, which provides
-# access to the values within the .ini file in use.
+# Alembic Config object
 config = context.config
 
 
 # Use the same database URL as the FastAPI application
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+config.set_main_option(
+    "sqlalchemy.url",
+    settings.DATABASE_URL
+)
 
 
-# Interpret the config file for Python logging.
-# This line sets up loggers basically.
+# Configure logging from alembic.ini
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 
-# SQLAlchemy metadata used by Alembic for autogenerate
+# SQLAlchemy metadata used by Alembic
 target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
-    """Run migrations in 'offline' mode."""
+    """Run migrations in offline mode."""
 
     url = config.get_main_option("sqlalchemy.url")
 
@@ -46,10 +48,13 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
-    """Run migrations in 'online' mode."""
+    """Run migrations in online mode."""
 
     connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        config.get_section(
+            config.config_ini_section,
+            {}
+        ),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
