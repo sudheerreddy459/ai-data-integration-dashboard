@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
@@ -10,6 +10,7 @@ from app.schemas.integration_run import (
     IntegrationRunCreate,
     IntegrationRunUpdate,
     IntegrationRunResponse,
+    RunStatus,
 )
 
 
@@ -52,23 +53,68 @@ def create_integration_run(
     return db_run
 
 
-# GET all integration runs
+# GET integration runs
+# Supports:
+# - status filtering
+# - pagination
+# - pagination validation
+# - newest runs first
 @router.get("/", response_model=list[IntegrationRunResponse])
 def get_integration_runs(
+    status: RunStatus | None = None,
+    limit: int = Query(
+        default=20,
+        ge=1,
+        le=100
+    ),
+    offset: int = Query(
+        default=0,
+        ge=0
+    ),
     db: Session = Depends(get_db)
 ):
-    runs = db.query(IntegrationRun).all()
+    query = db.query(IntegrationRun)
+
+    # Optional status filter
+    if status is not None:
+        query = query.filter(
+            IntegrationRun.status == status.value
+        )
+
+    # Newest runs first + pagination
+    runs = query.order_by(
+        IntegrationRun.started_at.desc()
+    ).offset(
+        offset
+    ).limit(
+        limit
+    ).all()
 
     return runs
 
 
-# GET all runs for a specific integration
+# GET runs for a specific integration
+# Supports:
+# - status filtering
+# - pagination
+# - pagination validation
+# - newest runs first
 @router.get(
     "/integration/{integration_id}",
     response_model=list[IntegrationRunResponse]
 )
 def get_runs_by_integration(
     integration_id: int,
+    status: RunStatus | None = None,
+    limit: int = Query(
+        default=20,
+        ge=1,
+        le=100
+    ),
+    offset: int = Query(
+        default=0,
+        ge=0
+    ),
     db: Session = Depends(get_db)
 ):
     # Check that the integration exists
@@ -82,8 +128,24 @@ def get_runs_by_integration(
             detail="Integration not found"
         )
 
-    runs = db.query(IntegrationRun).filter(
+    # Start query for this integration
+    query = db.query(IntegrationRun).filter(
         IntegrationRun.integration_id == integration_id
+    )
+
+    # Optional status filter
+    if status is not None:
+        query = query.filter(
+            IntegrationRun.status == status.value
+        )
+
+    # Newest runs first + pagination
+    runs = query.order_by(
+        IntegrationRun.started_at.desc()
+    ).offset(
+        offset
+    ).limit(
+        limit
     ).all()
 
     return runs
@@ -106,14 +168,15 @@ def update_integration_run(
             detail="Integration run not found"
         )
 
-    # A completed run cannot be completed again
+    # Completed runs cannot be completed again
     if run.status != "Running":
         raise HTTPException(
             status_code=409,
             detail="Integration run is already completed"
         )
 
-    run.status = run_update.status
+    # Complete the run
+    run.status = run_update.status.value
     run.records_processed = run_update.records_processed
     run.error_message = run_update.error_message
 
