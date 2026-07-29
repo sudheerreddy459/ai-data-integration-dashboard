@@ -123,6 +123,57 @@ def get_recent_runs(
     return recent_runs
 
 
+# GET recent failed integration runs
+# Used for failure monitoring and future AI error analysis
+@router.get(
+    "/recent-failures",
+    response_model=list[RecentRunResponse]
+)
+def get_recent_failures(
+    limit: int = Query(
+        default=5,
+        ge=1,
+        le=20
+    ),
+    db: Session = Depends(get_db)
+):
+    results = (
+        db.query(
+            IntegrationRun,
+            Integration.name.label("integration_name")
+        )
+        .join(
+            Integration,
+            IntegrationRun.integration_id == Integration.id
+        )
+        .filter(
+            IntegrationRun.status == "Failed"
+        )
+        .order_by(
+            IntegrationRun.started_at.desc()
+        )
+        .limit(limit)
+        .all()
+    )
+
+    recent_failures = []
+
+    for run, integration_name in results:
+        recent_failures.append({
+            "id": run.id,
+            "integration_id": run.integration_id,
+            "integration_name": integration_name,
+            "status": run.status,
+            "started_at": run.started_at,
+            "completed_at": run.completed_at,
+            "records_processed": run.records_processed,
+            "error_message": run.error_message,
+            "duration_seconds": run.duration_seconds
+        })
+
+    return recent_failures
+
+
 # GET summary for a specific integration
 @router.get(
     "/integrations/{integration_id}/summary",
