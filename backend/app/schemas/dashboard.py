@@ -40,3 +40,9 @@ class RecentRunResponse(BaseModel):
     error_category: str | None
     severity: str | None
     duration_seconds: float | None
+
+    # Failure analytics for dashboard charts
+class FailureAnalyticsResponse(BaseModel):
+    total_failures: int
+    by_category: dict[str, int]
+    by_severity: dict[str, int]

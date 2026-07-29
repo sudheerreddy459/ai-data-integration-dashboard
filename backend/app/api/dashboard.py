@@ -9,6 +9,7 @@ from app.schemas.dashboard import (
     DashboardSummaryResponse,
     IntegrationSummaryResponse,
     RecentRunResponse,
+    FailureAnalyticsResponse,
 )
 
 
@@ -176,6 +177,44 @@ def get_recent_failures(
         })
 
     return recent_failures
+
+
+# GET failure analytics
+# Groups failed runs by error category and severity
+@router.get(
+    "/failure-analytics",
+    response_model=FailureAnalyticsResponse
+)
+def get_failure_analytics(
+    db: Session = Depends(get_db)
+):
+    failed_runs = db.query(IntegrationRun).filter(
+        IntegrationRun.status == "Failed"
+    ).all()
+
+    total_failures = len(failed_runs)
+
+    by_category: dict[str, int] = {}
+    by_severity: dict[str, int] = {}
+
+    for run in failed_runs:
+        # Older failures may not have structured classification
+        category = run.error_category or "Unknown"
+        severity = run.severity or "Unknown"
+
+        by_category[category] = (
+            by_category.get(category, 0) + 1
+        )
+
+        by_severity[severity] = (
+            by_severity.get(severity, 0) + 1
+        )
+
+    return {
+        "total_failures": total_failures,
+        "by_category": by_category,
+        "by_severity": by_severity
+    }
 
 
 # GET summary for a specific integration
