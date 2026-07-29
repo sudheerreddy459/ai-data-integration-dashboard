@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel
 
 
@@ -23,3 +25,16 @@ class IntegrationSummaryResponse(BaseModel):
     last_run_status: str | None
     average_duration_seconds: float | None
     last_run_duration_seconds: float | None
+
+
+# Recent integration run shown on the dashboard
+class RecentRunResponse(BaseModel):
+    id: int
+    integration_id: int
+    integration_name: str
+    status: str
+    started_at: datetime
+    completed_at: datetime | None
+    records_processed: int
+    error_message: str | None
+    duration_seconds: float | None

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -8,6 +8,7 @@ from app.models.integration_run import IntegrationRun
 from app.schemas.dashboard import (
     DashboardSummaryResponse,
     IntegrationSummaryResponse,
+    RecentRunResponse,
 )
 
 
@@ -18,7 +19,10 @@ router = APIRouter(
 
 
 # GET overall dashboard summary
-@router.get("/summary", response_model=DashboardSummaryResponse)
+@router.get(
+    "/summary",
+    response_model=DashboardSummaryResponse
+)
 def get_dashboard_summary(
     db: Session = Depends(get_db)
 ):
@@ -49,8 +53,7 @@ def get_dashboard_summary(
         )
     ).scalar()
 
-    # Success rate is based only on completed runs.
-    # Running executions should not reduce the success rate.
+    # Running executions should not reduce the success rate
     completed_runs_count = successful_runs + failed_runs
 
     success_rate = (
@@ -70,6 +73,54 @@ def get_dashboard_summary(
         "total_records_processed": total_records_processed,
         "success_rate": success_rate
     }
+
+
+# GET recent integration runs
+# Includes integration name for frontend display
+@router.get(
+    "/recent-runs",
+    response_model=list[RecentRunResponse]
+)
+def get_recent_runs(
+    limit: int = Query(
+        default=5,
+        ge=1,
+        le=20
+    ),
+    db: Session = Depends(get_db)
+):
+    results = (
+        db.query(
+            IntegrationRun,
+            Integration.name.label("integration_name")
+        )
+        .join(
+            Integration,
+            IntegrationRun.integration_id == Integration.id
+        )
+        .order_by(
+            IntegrationRun.started_at.desc()
+        )
+        .limit(limit)
+        .all()
+    )
+
+    recent_runs = []
+
+    for run, integration_name in results:
+        recent_runs.append({
+            "id": run.id,
+            "integration_id": run.integration_id,
+            "integration_name": integration_name,
+            "status": run.status,
+            "started_at": run.started_at,
+            "completed_at": run.completed_at,
+            "records_processed": run.records_processed,
+            "error_message": run.error_message,
+            "duration_seconds": run.duration_seconds
+        })
+
+    return recent_runs
 
 
 # GET summary for a specific integration
@@ -117,7 +168,7 @@ def get_integration_summary(
         for run in runs
     )
 
-    # Success rate is based only on completed runs
+    # Running executions should not reduce the success rate
     completed_runs_count = successful_runs + failed_runs
 
     success_rate = (
@@ -129,14 +180,14 @@ def get_integration_summary(
         else 0.0
     )
 
-    # Get completed runs with valid durations
+    # Only completed runs with valid durations
     completed_runs = [
         run for run in runs
         if run.completed_at is not None
         and run.duration_seconds is not None
     ]
 
-    # Calculate average duration
+    # Calculate average execution duration
     if completed_runs:
         durations = [
             run.duration_seconds
