@@ -76,7 +76,7 @@ def get_dashboard_summary(
 
 
 # GET recent integration runs
-# Includes integration name for frontend display
+# Includes integration name and structured failure information
 @router.get(
     "/recent-runs",
     response_model=list[RecentRunResponse]
@@ -117,6 +117,8 @@ def get_recent_runs(
             "completed_at": run.completed_at,
             "records_processed": run.records_processed,
             "error_message": run.error_message,
+            "error_category": run.error_category,
+            "severity": run.severity,
             "duration_seconds": run.duration_seconds
         })
 
@@ -168,6 +170,8 @@ def get_recent_failures(
             "completed_at": run.completed_at,
             "records_processed": run.records_processed,
             "error_message": run.error_message,
+            "error_category": run.error_category,
+            "severity": run.severity,
             "duration_seconds": run.duration_seconds
         })
 

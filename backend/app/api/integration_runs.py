@@ -38,12 +38,15 @@ def create_integration_run(
         )
 
     # Every new run starts in Running state
+    # Failure-related fields start as NULL
     db_run = IntegrationRun(
         integration_id=run.integration_id,
         status="Running",
         records_processed=0,
         completed_at=None,
-        error_message=None
+        error_message=None,
+        error_category=None,
+        severity=None
     )
 
     db.add(db_run)
@@ -175,10 +178,34 @@ def update_integration_run(
             detail="Integration run is already completed"
         )
 
-    # Complete the run
-    run.status = run_update.status.value
-    run.records_processed = run_update.records_processed
-    run.error_message = run_update.error_message
+    # SUCCESS
+    # Successful runs should not contain failure information
+    if run_update.status.value == "Success":
+        run.status = "Success"
+        run.records_processed = run_update.records_processed
+
+        run.error_message = None
+        run.error_category = None
+        run.severity = None
+
+    # FAILED
+    else:
+        run.status = "Failed"
+        run.records_processed = run_update.records_processed
+
+        run.error_message = run_update.error_message
+
+        run.error_category = (
+            run_update.error_category.value
+            if run_update.error_category is not None
+            else None
+        )
+
+        run.severity = (
+            run_update.severity.value
+            if run_update.severity is not None
+            else None
+        )
 
     # Backend automatically records completion time
     run.completed_at = datetime.utcnow()

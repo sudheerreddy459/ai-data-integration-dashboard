@@ -37,4 +37,6 @@ class RecentRunResponse(BaseModel):
     completed_at: datetime | None
     records_processed: int
     error_message: str | None
+    error_category: str | None
+    severity: str | None
     duration_seconds: float | None

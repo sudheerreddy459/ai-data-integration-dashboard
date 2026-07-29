@@ -43,6 +43,20 @@ class IntegrationRun(Base):
         nullable=True
     )
 
+    # Structured category for failed executions
+    # Examples: Connection, Authentication, Validation, Mapping
+    error_category: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True
+    )
+
+    # Severity of the failure
+    # Examples: Low, Medium, High, Critical
+    severity: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True
+    )
+
     @property
     def duration_seconds(self) -> float | None:
         if self.completed_at is None:

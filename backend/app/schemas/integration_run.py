@@ -17,6 +17,25 @@ class RunCompletionStatus(str, Enum):
     FAILED = "Failed"
 
 
+# Failure categories
+class ErrorCategory(str, Enum):
+    CONNECTION = "Connection"
+    AUTHENTICATION = "Authentication"
+    VALIDATION = "Validation"
+    MAPPING = "Mapping"
+    DATABASE = "Database"
+    TIMEOUT = "Timeout"
+    UNKNOWN = "Unknown"
+
+
+# Failure severity levels
+class ErrorSeverity(str, Enum):
+    LOW = "Low"
+    MEDIUM = "Medium"
+    HIGH = "High"
+    CRITICAL = "Critical"
+
+
 # Used when STARTING a new integration run
 class IntegrationRunCreate(BaseModel):
     integration_id: int
@@ -27,6 +46,8 @@ class IntegrationRunUpdate(BaseModel):
     status: RunCompletionStatus
     records_processed: int = Field(default=0, ge=0)
     error_message: str | None = None
+    error_category: ErrorCategory | None = None
+    severity: ErrorSeverity | None = None
 
 
 # Returned by the API
@@ -38,6 +59,8 @@ class IntegrationRunResponse(BaseModel):
     completed_at: datetime | None
     records_processed: int
     error_message: str | None
+    error_category: ErrorCategory | None
+    severity: ErrorSeverity | None
     duration_seconds: float | None
 
     model_config = ConfigDict(from_attributes=True)
