@@ -10,6 +10,7 @@ from app.schemas.dashboard import (
     IntegrationSummaryResponse,
     RecentRunResponse,
     FailureAnalyticsResponse,
+    IntegrationAnalyticsResponse,
 )
 
 
@@ -217,6 +218,72 @@ def get_failure_analytics(
     }
 
 
+# GET analytics for all integrations
+# Shows run counts and failure rate for each integration
+@router.get(
+    "/integration-analytics",
+    response_model=list[IntegrationAnalyticsResponse]
+)
+def get_integration_analytics(
+    db: Session = Depends(get_db)
+):
+    integrations = db.query(Integration).all()
+
+    analytics = []
+
+    for integration in integrations:
+        runs = db.query(IntegrationRun).filter(
+            IntegrationRun.integration_id == integration.id
+        ).all()
+
+        total_runs = len(runs)
+
+        successful_runs = sum(
+            1 for run in runs
+            if run.status == "Success"
+        )
+
+        failed_runs = sum(
+            1 for run in runs
+            if run.status == "Failed"
+        )
+
+        running_runs = sum(
+            1 for run in runs
+            if run.status == "Running"
+        )
+
+        # Failure rate considers only completed executions
+        completed_runs_count = successful_runs + failed_runs
+
+        failure_rate = (
+            round(
+                (failed_runs / completed_runs_count) * 100,
+                2
+            )
+            if completed_runs_count > 0
+            else 0.0
+        )
+
+        analytics.append({
+            "integration_id": integration.id,
+            "integration_name": integration.name,
+            "total_runs": total_runs,
+            "successful_runs": successful_runs,
+            "failed_runs": failed_runs,
+            "running_runs": running_runs,
+            "failure_rate": failure_rate
+        })
+
+    # Show integrations with the highest failure rate first
+    analytics.sort(
+        key=lambda item: item["failure_rate"],
+        reverse=True
+    )
+
+    return analytics
+
+
 # GET summary for a specific integration
 @router.get(
     "/integrations/{integration_id}/summary",
@@ -244,19 +311,16 @@ def get_integration_summary(
 
     total_runs = len(runs)
 
-    # Count successful runs
     successful_runs = sum(
         1 for run in runs
         if run.status == "Success"
     )
 
-    # Count failed runs
     failed_runs = sum(
         1 for run in runs
         if run.status == "Failed"
     )
 
-    # Calculate total records processed
     total_records_processed = sum(
         run.records_processed
         for run in runs
@@ -281,7 +345,6 @@ def get_integration_summary(
         and run.duration_seconds is not None
     ]
 
-    # Calculate average execution duration
     if completed_runs:
         durations = [
             run.duration_seconds

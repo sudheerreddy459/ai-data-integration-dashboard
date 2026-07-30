@@ -41,8 +41,20 @@ class RecentRunResponse(BaseModel):
     severity: str | None
     duration_seconds: float | None
 
-    # Failure analytics for dashboard charts
+
+# Failure analytics for dashboard charts
 class FailureAnalyticsResponse(BaseModel):
     total_failures: int
     by_category: dict[str, int]
     by_severity: dict[str, int]
+
+
+# Analytics for each integration
+class IntegrationAnalyticsResponse(BaseModel):
+    integration_id: int
+    integration_name: str
+    total_runs: int
+    successful_runs: int
+    failed_runs: int
+    running_runs: int
+    failure_rate: float
