@@ -1,4 +1,17 @@
 import { useEffect, useState } from "react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+
 import "./App.css";
 
 const API_BASE_URL = "http://127.0.0.1:8000";
@@ -8,6 +21,7 @@ function App() {
   const [runTrends, setRunTrends] = useState([]);
   const [integrationAnalytics, setIntegrationAnalytics] = useState([]);
   const [recentFailures, setRecentFailures] = useState([]);
+  const [failureAnalytics, setFailureAnalytics] = useState(null);
 
   const [analysis, setAnalysis] = useState(null);
   const [analyzingRunId, setAnalyzingRunId] = useState(null);
@@ -24,18 +38,21 @@ function App() {
           trendsResponse,
           analyticsResponse,
           failuresResponse,
+          failureAnalyticsResponse,
         ] = await Promise.all([
           fetch(`${API_BASE_URL}/dashboard/summary`),
           fetch(`${API_BASE_URL}/dashboard/run-trends?days=7`),
           fetch(`${API_BASE_URL}/dashboard/integration-analytics`),
           fetch(`${API_BASE_URL}/dashboard/recent-failures?limit=5`),
+          fetch(`${API_BASE_URL}/dashboard/failure-analytics`),
         ]);
 
         if (
           !summaryResponse.ok ||
           !trendsResponse.ok ||
           !analyticsResponse.ok ||
-          !failuresResponse.ok
+          !failuresResponse.ok ||
+          !failureAnalyticsResponse.ok
         ) {
           throw new Error("Failed to load dashboard data");
         }
@@ -45,17 +62,20 @@ function App() {
           trendsData,
           analyticsData,
           failuresData,
+          failureAnalyticsData,
         ] = await Promise.all([
           summaryResponse.json(),
           trendsResponse.json(),
           analyticsResponse.json(),
           failuresResponse.json(),
+          failureAnalyticsResponse.json(),
         ]);
 
         setSummary(summaryData);
         setRunTrends(trendsData);
         setIntegrationAnalytics(analyticsData);
         setRecentFailures(failuresData);
+        setFailureAnalytics(failureAnalyticsData);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -97,6 +117,24 @@ function App() {
     return <div className="message error">Error: {error}</div>;
   }
 
+  const categoryData = failureAnalytics
+    ? Object.entries(failureAnalytics.by_category).map(
+        ([category, count]) => ({
+          name: category,
+          count,
+        })
+      )
+    : [];
+
+  const severityData = failureAnalytics
+    ? Object.entries(failureAnalytics.by_severity).map(
+        ([severity, count]) => ({
+          name: severity,
+          count,
+        })
+      )
+    : [];
+
   return (
     <div className="dashboard">
       <header className="dashboard-header">
@@ -105,6 +143,7 @@ function App() {
       </header>
 
       <main>
+        {/* Summary */}
         <section className="summary-grid">
           <div className="summary-card">
             <span>Total Integrations</span>
@@ -139,10 +178,68 @@ function App() {
           </div>
         </section>
 
+        {/* Run Trends */}
         <section className="dashboard-section">
           <div className="section-header">
             <h2>Run Trends</h2>
             <p>Integration execution activity for the last 7 days</p>
+          </div>
+
+          <div className="chart-container">
+            {runTrends.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart
+                  data={runTrends}
+                  margin={{
+                    top: 10,
+                    right: 20,
+                    left: 0,
+                    bottom: 10,
+                  }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+
+                  <XAxis dataKey="date" />
+
+                  <YAxis allowDecimals={false} />
+
+                  <Tooltip />
+
+                  <Legend />
+
+                  <Line
+                    type="monotone"
+                    dataKey="successful_runs"
+                    name="Successful"
+                    stroke="#16a34a"
+                    strokeWidth={3}
+                    activeDot={{ r: 6 }}
+                  />
+
+                  <Line
+                    type="monotone"
+                    dataKey="failed_runs"
+                    name="Failed"
+                    stroke="#dc2626"
+                    strokeWidth={3}
+                    activeDot={{ r: 6 }}
+                  />
+
+                  <Line
+                    type="monotone"
+                    dataKey="running_runs"
+                    name="Running"
+                    stroke="#2563eb"
+                    strokeWidth={3}
+                    activeDot={{ r: 6 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="chart-empty">
+                No run trend data available.
+              </div>
+            )}
           </div>
 
           <div className="table-container">
@@ -178,6 +275,88 @@ function App() {
           </div>
         </section>
 
+        {/* Failure Analytics */}
+        <section className="dashboard-section">
+          <div className="section-header">
+            <h2>Failure Analytics</h2>
+            <p>
+              Failure distribution by error category and severity
+            </p>
+          </div>
+
+          <div className="failure-summary">
+            <span>Total Failures</span>
+            <strong>
+              {failureAnalytics?.total_failures ?? 0}
+            </strong>
+          </div>
+
+          <div className="failure-charts-grid">
+            <div className="failure-chart-card">
+              <h3>Failures by Category</h3>
+
+              <div className="failure-chart">
+                {categoryData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={categoryData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+
+                      <XAxis dataKey="name" />
+
+                      <YAxis allowDecimals={false} />
+
+                      <Tooltip />
+
+                      <Bar
+                        dataKey="count"
+                        name="Failures"
+                        fill="#dc2626"
+                        radius={[6, 6, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="chart-empty">
+                    No category data available.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="failure-chart-card">
+              <h3>Failures by Severity</h3>
+
+              <div className="failure-chart">
+                {severityData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={severityData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+
+                      <XAxis dataKey="name" />
+
+                      <YAxis allowDecimals={false} />
+
+                      <Tooltip />
+
+                      <Bar
+                        dataKey="count"
+                        name="Failures"
+                        fill="#f59e0b"
+                        radius={[6, 6, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="chart-empty">
+                    No severity data available.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Integration Analytics */}
         <section className="dashboard-section">
           <div className="section-header">
             <h2>Integration Analytics</h2>
@@ -221,6 +400,7 @@ function App() {
           </div>
         </section>
 
+        {/* Recent Failures */}
         <section className="dashboard-section">
           <div className="section-header">
             <h2>Recent Failures</h2>
@@ -254,7 +434,10 @@ function App() {
                         {failure.severity || "Unknown"}
                       </td>
 
-                      <td>{failure.error_message || "No error message"}</td>
+                      <td>
+                        {failure.error_message ||
+                          "No error message"}
+                      </td>
 
                       <td>
                         {failure.duration_seconds !== null
@@ -265,8 +448,12 @@ function App() {
                       <td>
                         <button
                           className="analyze-button"
-                          onClick={() => analyzeFailure(failure.id)}
-                          disabled={analyzingRunId === failure.id}
+                          onClick={() =>
+                            analyzeFailure(failure.id)
+                          }
+                          disabled={
+                            analyzingRunId === failure.id
+                          }
                         >
                           {analyzingRunId === failure.id
                             ? "Analyzing..."
@@ -313,7 +500,9 @@ function App() {
 
                 <div>
                   <span>Severity</span>
-                  <strong>{analysis.severity || "Unknown"}</strong>
+                  <strong>
+                    {analysis.severity || "Unknown"}
+                  </strong>
                 </div>
               </div>
 
