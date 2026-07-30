@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 
+import RunDetails from "../components/RunDetails";
+
 const API_BASE_URL = "http://127.0.0.1:8000";
 
 function Runs() {
@@ -78,6 +80,7 @@ function Runs() {
       }
 
       const data = await response.json();
+
       setSelectedRun(data);
     } catch (err) {
       setDetailsError(err.message);
@@ -231,13 +234,25 @@ function Runs() {
                   setStatusFilter(event.target.value)
                 }
               >
-                <option value="All">All</option>
-                <option value="Success">Success</option>
+                <option value="All">
+                  All
+                </option>
+
+                <option value="Success">
+                  Success
+                </option>
+
                 <option value="Successful">
                   Successful
                 </option>
-                <option value="Failed">Failed</option>
-                <option value="Running">Running</option>
+
+                <option value="Failed">
+                  Failed
+                </option>
+
+                <option value="Running">
+                  Running
+                </option>
               </select>
             </div>
           </div>
@@ -335,117 +350,20 @@ function Runs() {
             </div>
           )}
 
-          {selectedRun && (
-            <div className="analysis-panel run-details-panel">
-              <div className="analysis-header">
-                <div>
-                  <span>Run Details</span>
-
-                  <h3>
-                    {getIntegrationName(
-                      selectedRun.integration_id
-                    )}
-                  </h3>
-                </div>
-
-                <button
-                  className="secondary-button"
-                  type="button"
-                  onClick={() => setSelectedRun(null)}
-                >
-                  Close
-                </button>
-              </div>
-
-              <div className="run-details-grid">
-                <div>
-                  <span>Run ID</span>
-                  <strong>{selectedRun.id}</strong>
-                </div>
-
-                <div>
-                  <span>Status</span>
-
-                  <strong>
-                    <span
-                      className={getStatusClass(
-                        selectedRun.status
-                      )}
-                    >
-                      {selectedRun.status ||
-                        "Unknown"}
-                    </span>
-                  </strong>
-                </div>
-
-                <div>
-                  <span>Started</span>
-
-                  <strong>
-                    {formatDate(
-                      selectedRun.started_at
-                    )}
-                  </strong>
-                </div>
-
-                <div>
-                  <span>Completed</span>
-
-                  <strong>
-                    {formatDate(
-                      selectedRun.completed_at
-                    )}
-                  </strong>
-                </div>
-
-                <div>
-                  <span>Records Processed</span>
-
-                  <strong>
-                    {selectedRun.records_processed ??
-                      0}
-                  </strong>
-                </div>
-
-                <div>
-                  <span>Duration</span>
-
-                  <strong>
-                    {formatDuration(
-                      selectedRun.duration_seconds
-                    )}
-                  </strong>
-                </div>
-
-                <div>
-                  <span>Error Category</span>
-
-                  <strong>
-                    {selectedRun.error_category ||
-                      "-"}
-                  </strong>
-                </div>
-
-                <div>
-                  <span>Severity</span>
-
-                  <strong>
-                    {selectedRun.severity || "-"}
-                  </strong>
-                </div>
-              </div>
-
-              {selectedRun.error_message && (
-                <div className="run-error-details">
-                  <span>Error Message</span>
-
-                  <p>
-                    {selectedRun.error_message}
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
+          <RunDetails
+            run={selectedRun}
+            integrationName={
+              selectedRun
+                ? getIntegrationName(
+                    selectedRun.integration_id
+                  )
+                : ""
+            }
+            onClose={() => setSelectedRun(null)}
+            getStatusClass={getStatusClass}
+            formatDate={formatDate}
+            formatDuration={formatDuration}
+          />
         </section>
       </main>
     </>

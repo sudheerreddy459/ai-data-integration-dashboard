@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
+import RunDetails from "../components/RunDetails";
+
 const API_BASE_URL = "http://127.0.0.1:8000";
 
 function IntegrationDetails() {
@@ -8,6 +10,10 @@ function IntegrationDetails() {
 
   const [integration, setIntegration] = useState(null);
   const [runs, setRuns] = useState([]);
+
+  const [selectedRun, setSelectedRun] = useState(null);
+  const [loadingRunId, setLoadingRunId] = useState(null);
+  const [detailsError, setDetailsError] = useState(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -70,6 +76,29 @@ function IntegrationDetails() {
       cancelled = true;
     };
   }, [integrationId]);
+
+  async function viewRunDetails(runId) {
+    setLoadingRunId(runId);
+    setDetailsError(null);
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/integration-runs/${runId}`
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to load run details");
+      }
+
+      const data = await response.json();
+
+      setSelectedRun(data);
+    } catch (err) {
+      setDetailsError(err.message);
+    } finally {
+      setLoadingRunId(null);
+    }
+  }
 
   function formatDate(dateValue) {
     if (!dateValue) {
@@ -200,6 +229,7 @@ function IntegrationDetails() {
 
             <div>
               <span>Source System</span>
+
               <strong>
                 {integration.source_system}
               </strong>
@@ -207,6 +237,7 @@ function IntegrationDetails() {
 
             <div>
               <span>Target System</span>
+
               <strong>
                 {integration.target_system}
               </strong>
@@ -281,6 +312,7 @@ function IntegrationDetails() {
                   <th>Duration</th>
                   <th>Category</th>
                   <th>Severity</th>
+                  <th>Action</th>
                 </tr>
               </thead>
 
@@ -325,11 +357,28 @@ function IntegrationDetails() {
                       <td>
                         {run.severity || "-"}
                       </td>
+
+                      <td>
+                        <button
+                          className="analyze-button"
+                          type="button"
+                          disabled={
+                            loadingRunId === run.id
+                          }
+                          onClick={() =>
+                            viewRunDetails(run.id)
+                          }
+                        >
+                          {loadingRunId === run.id
+                            ? "Loading..."
+                            : "View"}
+                        </button>
+                      </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="8">
+                    <td colSpan="9">
                       No execution history available for
                       this integration.
                     </td>
@@ -338,6 +387,21 @@ function IntegrationDetails() {
               </tbody>
             </table>
           </div>
+
+          {detailsError && (
+            <div className="analysis-error">
+              {detailsError}
+            </div>
+          )}
+
+          <RunDetails
+            run={selectedRun}
+            integrationName={integration.name}
+            onClose={() => setSelectedRun(null)}
+            getStatusClass={getStatusClass}
+            formatDate={formatDate}
+            formatDuration={formatDuration}
+          />
         </section>
       </main>
     </>
