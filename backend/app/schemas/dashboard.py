@@ -58,3 +58,11 @@ class IntegrationAnalyticsResponse(BaseModel):
     failed_runs: int
     running_runs: int
     failure_rate: float
+
+    # Daily run trend for dashboard charts
+class RunTrendResponse(BaseModel):
+    date: str
+    total_runs: int
+    successful_runs: int
+    failed_runs: int
+    running_runs: int

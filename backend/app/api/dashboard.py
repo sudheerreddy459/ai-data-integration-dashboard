@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -11,6 +13,7 @@ from app.schemas.dashboard import (
     RecentRunResponse,
     FailureAnalyticsResponse,
     IntegrationAnalyticsResponse,
+    RunTrendResponse,
 )
 
 
@@ -20,7 +23,10 @@ router = APIRouter(
 )
 
 
-# GET overall dashboard summary
+# ============================================================
+# GET OVERALL DASHBOARD SUMMARY
+# ============================================================
+
 @router.get(
     "/summary",
     response_model=DashboardSummaryResponse
@@ -55,7 +61,8 @@ def get_dashboard_summary(
         )
     ).scalar()
 
-    # Running executions should not reduce the success rate
+    # Success rate considers only completed runs.
+    # Running executions should not reduce the success rate.
     completed_runs_count = successful_runs + failed_runs
 
     success_rate = (
@@ -77,8 +84,10 @@ def get_dashboard_summary(
     }
 
 
-# GET recent integration runs
-# Includes integration name and structured failure information
+# ============================================================
+# GET RECENT INTEGRATION RUNS
+# ============================================================
+
 @router.get(
     "/recent-runs",
     response_model=list[RecentRunResponse]
@@ -127,8 +136,10 @@ def get_recent_runs(
     return recent_runs
 
 
-# GET recent failed integration runs
-# Used for failure monitoring and future AI error analysis
+# ============================================================
+# GET RECENT FAILED RUNS
+# ============================================================
+
 @router.get(
     "/recent-failures",
     response_model=list[RecentRunResponse]
@@ -180,8 +191,10 @@ def get_recent_failures(
     return recent_failures
 
 
-# GET failure analytics
-# Groups failed runs by error category and severity
+# ============================================================
+# GET FAILURE ANALYTICS
+# ============================================================
+
 @router.get(
     "/failure-analytics",
     response_model=FailureAnalyticsResponse
@@ -199,7 +212,7 @@ def get_failure_analytics(
     by_severity: dict[str, int] = {}
 
     for run in failed_runs:
-        # Older failures may not have structured classification
+        # Older failures may not have classification values.
         category = run.error_category or "Unknown"
         severity = run.severity or "Unknown"
 
@@ -218,8 +231,10 @@ def get_failure_analytics(
     }
 
 
-# GET analytics for all integrations
-# Shows run counts and failure rate for each integration
+# ============================================================
+# GET ANALYTICS FOR ALL INTEGRATIONS
+# ============================================================
+
 @router.get(
     "/integration-analytics",
     response_model=list[IntegrationAnalyticsResponse]
@@ -253,7 +268,7 @@ def get_integration_analytics(
             if run.status == "Running"
         )
 
-        # Failure rate considers only completed executions
+        # Failure rate considers only completed runs.
         completed_runs_count = successful_runs + failed_runs
 
         failure_rate = (
@@ -275,7 +290,7 @@ def get_integration_analytics(
             "failure_rate": failure_rate
         })
 
-    # Show integrations with the highest failure rate first
+    # Integrations with highest failure rate first.
     analytics.sort(
         key=lambda item: item["failure_rate"],
         reverse=True
@@ -284,7 +299,77 @@ def get_integration_analytics(
     return analytics
 
 
-# GET summary for a specific integration
+# ============================================================
+# GET DAILY RUN TRENDS
+# ============================================================
+
+@router.get(
+    "/run-trends",
+    response_model=list[RunTrendResponse]
+)
+def get_run_trends(
+    days: int = Query(
+        default=7,
+        ge=1,
+        le=90
+    ),
+    db: Session = Depends(get_db)
+):
+    # Only retrieve runs within the requested time period.
+    start_date = datetime.utcnow() - timedelta(days=days)
+
+    runs = db.query(IntegrationRun).filter(
+        IntegrationRun.started_at >= start_date
+    ).order_by(
+        IntegrationRun.started_at.asc()
+    ).all()
+
+    trends: dict[str, dict[str, int]] = {}
+
+    for run in runs:
+        run_date = run.started_at.date().isoformat()
+
+        # Create the daily bucket when we encounter
+        # the date for the first time.
+        if run_date not in trends:
+            trends[run_date] = {
+                "total_runs": 0,
+                "successful_runs": 0,
+                "failed_runs": 0,
+                "running_runs": 0
+            }
+
+        trends[run_date]["total_runs"] += 1
+
+        if run.status == "Success":
+            trends[run_date]["successful_runs"] += 1
+
+        elif run.status == "Failed":
+            trends[run_date]["failed_runs"] += 1
+
+        elif run.status == "Running":
+            trends[run_date]["running_runs"] += 1
+
+    result = []
+
+    # Sort by date so the frontend receives
+    # chronological chart data.
+    for date, counts in sorted(trends.items()):
+        result.append({
+            "date": date,
+            "total_runs": counts["total_runs"],
+            "successful_runs": counts["successful_runs"],
+            "failed_runs": counts["failed_runs"],
+            "running_runs": counts["running_runs"]
+        })
+
+    return result
+
+
+# ============================================================
+# GET SUMMARY FOR A SPECIFIC INTEGRATION
+# ============================================================
+
 @router.get(
     "/integrations/{integration_id}/summary",
     response_model=IntegrationSummaryResponse
@@ -293,7 +378,7 @@ def get_integration_summary(
     integration_id: int,
     db: Session = Depends(get_db)
 ):
-    # Check whether the integration exists
+    # Check whether the integration exists.
     integration = db.query(Integration).filter(
         Integration.id == integration_id
     ).first()
@@ -304,7 +389,7 @@ def get_integration_summary(
             detail="Integration not found"
         )
 
-    # Get all runs for this integration
+    # Get all runs belonging to this integration.
     runs = db.query(IntegrationRun).filter(
         IntegrationRun.integration_id == integration_id
     ).all()
@@ -326,7 +411,7 @@ def get_integration_summary(
         for run in runs
     )
 
-    # Running executions should not reduce the success rate
+    # Success rate considers only completed runs.
     completed_runs_count = successful_runs + failed_runs
 
     success_rate = (
@@ -338,7 +423,7 @@ def get_integration_summary(
         else 0.0
     )
 
-    # Only completed runs with valid durations
+    # Exclude running executions and invalid durations.
     completed_runs = [
         run for run in runs
         if run.completed_at is not None
@@ -358,7 +443,7 @@ def get_integration_summary(
     else:
         average_duration_seconds = None
 
-    # Find the most recent run
+    # Find the latest execution.
     last_run = max(
         runs,
         key=lambda run: run.started_at,
