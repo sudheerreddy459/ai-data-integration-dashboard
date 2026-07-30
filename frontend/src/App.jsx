@@ -7,6 +7,12 @@ function App() {
   const [summary, setSummary] = useState(null);
   const [runTrends, setRunTrends] = useState([]);
   const [integrationAnalytics, setIntegrationAnalytics] = useState([]);
+  const [recentFailures, setRecentFailures] = useState([]);
+
+  const [analysis, setAnalysis] = useState(null);
+  const [analyzingRunId, setAnalyzingRunId] = useState(null);
+  const [analysisError, setAnalysisError] = useState(null);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -17,16 +23,19 @@ function App() {
           summaryResponse,
           trendsResponse,
           analyticsResponse,
+          failuresResponse,
         ] = await Promise.all([
           fetch(`${API_BASE_URL}/dashboard/summary`),
           fetch(`${API_BASE_URL}/dashboard/run-trends?days=7`),
           fetch(`${API_BASE_URL}/dashboard/integration-analytics`),
+          fetch(`${API_BASE_URL}/dashboard/recent-failures?limit=5`),
         ]);
 
         if (
           !summaryResponse.ok ||
           !trendsResponse.ok ||
-          !analyticsResponse.ok
+          !analyticsResponse.ok ||
+          !failuresResponse.ok
         ) {
           throw new Error("Failed to load dashboard data");
         }
@@ -35,15 +44,18 @@ function App() {
           summaryData,
           trendsData,
           analyticsData,
+          failuresData,
         ] = await Promise.all([
           summaryResponse.json(),
           trendsResponse.json(),
           analyticsResponse.json(),
+          failuresResponse.json(),
         ]);
 
         setSummary(summaryData);
         setRunTrends(trendsData);
         setIntegrationAnalytics(analyticsData);
+        setRecentFailures(failuresData);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -53,6 +65,29 @@ function App() {
 
     fetchDashboardData();
   }, []);
+
+  async function analyzeFailure(runId) {
+    setAnalyzingRunId(runId);
+    setAnalysis(null);
+    setAnalysisError(null);
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/ai-analysis/failures/${runId}`
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to analyze integration failure");
+      }
+
+      const data = await response.json();
+      setAnalysis(data);
+    } catch (err) {
+      setAnalysisError(err.message);
+    } finally {
+      setAnalyzingRunId(null);
+    }
+  }
 
   if (loading) {
     return <div className="message">Loading dashboard...</div>;
@@ -184,6 +219,113 @@ function App() {
               </tbody>
             </table>
           </div>
+        </section>
+
+        <section className="dashboard-section">
+          <div className="section-header">
+            <h2>Recent Failures</h2>
+            <p>Latest failed integration executions</p>
+          </div>
+
+          <div className="table-container">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Integration</th>
+                  <th>Category</th>
+                  <th>Severity</th>
+                  <th>Error</th>
+                  <th>Duration</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {recentFailures.length > 0 ? (
+                  recentFailures.map((failure) => (
+                    <tr key={failure.id}>
+                      <td>{failure.integration_name}</td>
+
+                      <td>
+                        {failure.error_category || "Unknown"}
+                      </td>
+
+                      <td>
+                        {failure.severity || "Unknown"}
+                      </td>
+
+                      <td>{failure.error_message || "No error message"}</td>
+
+                      <td>
+                        {failure.duration_seconds !== null
+                          ? `${failure.duration_seconds}s`
+                          : "-"}
+                      </td>
+
+                      <td>
+                        <button
+                          className="analyze-button"
+                          onClick={() => analyzeFailure(failure.id)}
+                          disabled={analyzingRunId === failure.id}
+                        >
+                          {analyzingRunId === failure.id
+                            ? "Analyzing..."
+                            : "Analyze"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="6">No recent failures.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {analysisError && (
+            <div className="analysis-error">
+              {analysisError}
+            </div>
+          )}
+
+          {analysis && (
+            <div className="analysis-panel">
+              <div className="analysis-header">
+                <div>
+                  <span>Failure Analysis</span>
+                  <h3>{analysis.integration_name}</h3>
+                </div>
+
+                <span className="analysis-source">
+                  {analysis.analysis_source || "RuleBased"}
+                </span>
+              </div>
+
+              <div className="analysis-grid">
+                <div>
+                  <span>Category</span>
+                  <strong>
+                    {analysis.error_category || "Unknown"}
+                  </strong>
+                </div>
+
+                <div>
+                  <span>Severity</span>
+                  <strong>{analysis.severity || "Unknown"}</strong>
+                </div>
+              </div>
+
+              <div className="analysis-content">
+                <h4>Probable Cause</h4>
+                <p>{analysis.probable_cause}</p>
+
+                <h4>Recommendation</h4>
+                <p>{analysis.recommendation}</p>
+              </div>
+            </div>
+          )}
         </section>
       </main>
     </div>
