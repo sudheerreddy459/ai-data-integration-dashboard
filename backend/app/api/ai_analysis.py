@@ -60,12 +60,13 @@ def get_failure_analysis(
     )
 
     return {
-        "run_id": run.id,
-        "integration_id": run.integration_id,
-        "integration_name": integration.name,
-        "error_message": run.error_message,
-        "error_category": run.error_category,
-        "severity": run.severity,
-        "probable_cause": analysis["probable_cause"],
-        "recommendation": analysis["recommendation"]
-    }
+    "run_id": run.id,
+    "integration_id": run.integration_id,
+    "integration_name": integration.name,
+    "error_message": run.error_message,
+    "error_category": run.error_category,
+    "severity": run.severity,
+    "probable_cause": analysis["probable_cause"],
+    "recommendation": analysis["recommendation"],
+    "analysis_source": analysis["analysis_source"]
+}

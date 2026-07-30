@@ -12,3 +12,7 @@ class FailureAnalysisResponse(BaseModel):
 
     probable_cause: str
     recommendation: str
+
+    # Indicates whether the analysis came from
+    # OpenAI or the rule-based fallback
+    analysis_source: str
