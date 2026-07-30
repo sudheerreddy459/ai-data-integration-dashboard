@@ -382,9 +382,23 @@ function App() {
                     <tr key={integration.integration_id}>
                       <td>{integration.integration_name}</td>
                       <td>{integration.total_runs}</td>
-                      <td>{integration.successful_runs}</td>
-                      <td>{integration.failed_runs}</td>
-                      <td>{integration.running_runs}</td>
+                      <td>
+  <span className="badge badge-success">
+    {integration.successful_runs}
+  </span>
+</td>
+
+<td>
+  <span className="badge badge-failed">
+    {integration.failed_runs}
+  </span>
+</td>
+
+<td>
+  <span className="badge badge-running">
+    {integration.running_runs}
+  </span>
+</td>
                       <td>{integration.failure_rate}%</td>
                     </tr>
                   ))
@@ -426,13 +440,21 @@ function App() {
                     <tr key={failure.id}>
                       <td>{failure.integration_name}</td>
 
-                      <td>
-                        {failure.error_category || "Unknown"}
-                      </td>
+                     <td>
+  <span className="badge badge-category">
+    {failure.error_category || "Unknown"}
+  </span>
+</td>
 
-                      <td>
-                        {failure.severity || "Unknown"}
-                      </td>
+<td>
+  <span
+    className={`badge badge-${(
+      failure.severity || "unknown"
+    ).toLowerCase()}`}
+  >
+    {failure.severity || "Unknown"}
+  </span>
+</td>
 
                       <td>
                         {failure.error_message ||
