@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
 const API_BASE_URL = "http://127.0.0.1:8000";
 
@@ -388,11 +389,14 @@ function Integrations() {
                     <tr key={integration.id}>
                       <td>{integration.id}</td>
 
-                      <td>
-                        <strong>
-                          {integration.name}
-                        </strong>
-                      </td>
+                    <td>
+                    <Link
+                    className="integration-link"
+                    to={`/integrations/${integration.id}`}
+                    >
+                    {integration.name}
+                    </Link>
+                    </td>
 
                       <td>
                         {integration.source_system}
