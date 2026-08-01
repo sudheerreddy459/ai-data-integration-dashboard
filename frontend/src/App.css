@@ -844,3 +844,13 @@
 .integration-toolbar input {
   flex: 1;
 }
+
+.ai-insights-list {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.ai-insights-list li {
+  margin-bottom: 12px;
+  line-height: 1.6;
+}
