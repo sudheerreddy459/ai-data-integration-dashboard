@@ -20,6 +20,9 @@ function Integrations() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState(null);
 
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
+
   useEffect(() => {
     let cancelled = false;
 
@@ -164,6 +167,26 @@ function Integrations() {
     (integration) =>
       integration.status?.toLowerCase() === "active"
   ).length;
+
+  const filteredIntegrations = integrations.filter((integration) => 
+  {
+  const matchesSearch =
+    integration.name
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase()) ||
+    integration.source_system
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase()) ||
+    integration.target_system
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase());
+
+  const matchesStatus =
+    statusFilter === "All" ||
+    integration.status === statusFilter;
+
+  return matchesSearch && matchesStatus;
+  });
 
   const testingCount = integrations.filter(
     (integration) =>
@@ -368,7 +391,28 @@ function Integrations() {
               Configured source and target system integrations
             </p>
           </div>
+        <div className="integration-toolbar">
+          <input
+            type="text"
+            placeholder="Search integrations..."
+            value={searchTerm}
+            onChange={(event) =>
+          setSearchTerm(event.target.value)
+          }
+        />
 
+        <select
+          value={statusFilter}
+          onChange={(event) =>
+            setStatusFilter(event.target.value)
+        }
+      >
+    <option value="All">All Status</option>
+    <option value="Active">Active</option>
+    <option value="Testing">Testing</option>
+    <option value="Inactive">Inactive</option>
+  </select>
+</div>
           <div className="table-container">
             <table className="data-table">
               <thead>
@@ -384,8 +428,8 @@ function Integrations() {
               </thead>
 
               <tbody>
-                {integrations.length > 0 ? (
-                  integrations.map((integration) => (
+                {filteredIntegrations.length > 0 ? (
+                  filteredIntegrations.map((integration) => (
                     <tr key={integration.id}>
                       <td>{integration.id}</td>
 

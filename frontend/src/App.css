@@ -825,3 +825,22 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+.integration-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 20px 0;
+}
+
+.integration-toolbar input,
+.integration-toolbar select {
+  padding: 10px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+}
+
+.integration-toolbar input {
+  flex: 1;
+}
