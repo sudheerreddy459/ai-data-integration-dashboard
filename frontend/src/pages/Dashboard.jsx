@@ -6,6 +6,7 @@ import FailureAnalytics from "../components/FailureAnalytics";
 import IntegrationAnalytics from "../components/IntegrationAnalytics";
 import RecentFailures from "../components/RecentFailures";
 import AIInsights from "../components/AIInsights";
+import AIRecommendations from "../components/AIRecommendations";
 
 const API_BASE_URL = "http://127.0.0.1:8000";
 
@@ -118,13 +119,20 @@ function Dashboard() {
       </header>
 
       <main>
-        <SummaryCards summary={summary} />
+       <SummaryCards summary={summary} />
 
         <AIInsights
           summary={summary}
           failureAnalytics={failureAnalytics}
           recentFailures={recentFailures}
         />
+
+        <AIRecommendations
+          summary={summary}
+          failureAnalytics={failureAnalytics}
+          recentFailures={recentFailures}
+        />
+
         <RunTrends runTrends={runTrends} />
 
         <FailureAnalytics
